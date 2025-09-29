@@ -13,12 +13,6 @@ Parameters:
   AllowedCidr:
     Type: String
     Description: The CIDR IP range to allow access to the ALB
-  PublicSubnet1:
-    Type: String
-    Description: The ID of the public subnet 1
-  PublicSubnet2:
-    Type: String
-    Description: The ID of the public subnet 2
   PrivateSubnet1:
     Type: String
     Description: The ID of the private subnet 1
@@ -44,7 +38,7 @@ Parameters:
   Path:
     Type: String
     Default: "*"
-    Description: A path on the public load balancer that this service
+    Description: A path on the private load balancer that this service
       should be connected to. Use * to send all load balancer
       traffic to this service.
   Priority:
@@ -97,13 +91,13 @@ Resources:
           CidrIp: "0.0.0.0/0"
           IpProtocol: -1
 
-  EcsSecurityGroupIngressFromPublicALB:
+  EcsSecurityGroupIngressFromPrivateALB:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
-      Description: Ingress from the public ALB
+      Description: Ingress from the private ALB
       GroupId: !Ref "FargateContainerSecurityGroup"
       IpProtocol: -1
-      SourceSecurityGroupId: !Ref "PublicLoadBalancerSG"
+      SourceSecurityGroupId: !Ref "PrivateLoadBalancerSG"
 
   EcsSecurityGroupIngressFromSelf:
     Type: AWS::EC2::SecurityGroupIngress
@@ -113,32 +107,19 @@ Resources:
       IpProtocol: -1
       SourceSecurityGroupId: !Ref "FargateContainerSecurityGroup"
 
-  PublicLoadBalancerSG:
+  PrivateLoadBalancerSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Access to the public facing load balancer
+      GroupDescription: Access to the private facing load balancer
       VpcId: !Ref VPCId
       SecurityGroupIngress:
-        - Name: PubLBSecurityGroupIngressRule
+        - Name: PrivLBSecurityGroupIngressRule
           CidrIp: !Ref AllowedCidr
           IpProtocol: -1
       SecurityGroupEgress:
-        - Name: PubLBSecurityGroupEgressRule
+        - Name: PrivLBSecurityGroupEgressRule
           CidrIp: "0.0.0.0/0"
           IpProtocol: -1
-
-  PublicLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Scheme: internet-facing
-      LoadBalancerAttributes:
-        - Key: idle_timeout.timeout_seconds
-          Value: "120"
-      Subnets:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
-      SecurityGroups: [!Ref "PublicLoadBalancerSG"]
-
 
   PrivateLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -150,11 +131,11 @@ Resources:
       Subnets:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-      SecurityGroups: [!Ref "PublicLoadBalancerSG"]
+      SecurityGroups: [!Ref "PrivateLoadBalancerSG"]
 
   # A dummy target group is used to setup the ALB to just drop traffic
   # initially, before any real service target groups have been added.
-  DummyTargetGroupPublic:
+  DummyTargetGroupPrivate:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       HealthCheckIntervalSeconds: 6
@@ -167,15 +148,15 @@ Resources:
       Protocol: HTTP
       UnhealthyThresholdCount: 2
       VpcId: !Ref VPCId
-  PublicLoadBalancerListener:
+  PrivateLoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     DependsOn:
-      - PublicLoadBalancer
+      - PrivateLoadBalancer
     Properties:
       DefaultActions:
-        - TargetGroupArn: !Ref "DummyTargetGroupPublic"
+        - TargetGroupArn: !Ref "DummyTargetGroupPrivate"
           Type: "forward"
-      LoadBalancerArn: !Ref "PublicLoadBalancer"
+      LoadBalancerArn: !Ref "PrivateLoadBalancer"
       Port: 80
       Protocol: HTTP
   ECSRole:
@@ -292,32 +273,6 @@ Resources:
         OperatingSystemFamily: LINUX
         CpuArchitecture: X86_64
 
-  Service:
-    Type: AWS::ECS::Service
-    DependsOn: LoadBalancerRule
-    Properties:
-      ServiceName: !Ref "ServiceName"
-      Cluster: !Ref ECSCluster
-      LaunchType: FARGATE
-      DeploymentConfiguration:
-        MaximumPercent: 200
-        MinimumHealthyPercent: 75
-      DesiredCount: !Ref "DesiredCount"
-      NetworkConfiguration:
-        AwsvpcConfiguration:
-          AssignPublicIp: ENABLED
-          SecurityGroups:
-            - !Ref FargateContainerSecurityGroup
-          Subnets:
-            - !Ref PublicSubnet1
-            - !Ref PublicSubnet2
-      TaskDefinition: !Ref "TaskDefinition"
-      LoadBalancers:
-        - ContainerName: !Ref "ServiceName"
-          ContainerPort: !Ref "ContainerPort"
-          TargetGroupArn: !Ref "TargetGroup"
-
-
   PrivateService:
     Type: AWS::ECS::Service
     DependsOn: LoadBalancerRule
@@ -359,7 +314,7 @@ Resources:
       VpcId: !Ref VPCId
 
   # Create a rule on the load balancer for routing traffic to the target group
-  LoadBalancerRule:
+  PrivateLoadBalancerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
       Actions:
@@ -368,7 +323,7 @@ Resources:
       Conditions:
         - Field: path-pattern
           Values: [!Ref "Path"]
-      ListenerArn: !Ref PublicLoadBalancerListener
+      ListenerArn: !Ref PrivateLoadBalancerListener
       Priority: !Ref "Priority"
 Outputs:
   ClusterName:
@@ -378,7 +333,7 @@ Outputs:
       Name: !Join [":", [!Ref "AWS::StackName", "ClusterName"]]
   ExternalUrl:
     Description: The url of the external load balancer
-    Value: !Join ["", ["http://", !GetAtt "PublicLoadBalancer.DNSName"]]
+    Value: !Join ["", ["http://", !GetAtt "PrivateLoadBalancer.DNSName"]]
     Export:
       Name: !Join [":", [!Ref "AWS::StackName", "ExternalUrl"]]
   ECSRole:
@@ -391,11 +346,11 @@ Outputs:
     Value: !GetAtt "ECSTaskExecutionRole.Arn"
     Export:
       Name: !Join [":", [!Ref "AWS::StackName", "ECSTaskExecutionRole"]]
-  PublicListener:
-    Description: The ARN of the public load balancer's Listener
-    Value: !Ref PublicLoadBalancerListener
+  PrivateListener:
+    Description: The ARN of the private load balancer's Listener
+    Value: !Ref PrivateLoadBalancerListener
     Export:
-      Name: !Join [":", [!Ref "AWS::StackName", "PublicListener"]]
+      Name: !Join [":", [!Ref "AWS::StackName", "PrivateListener"]]
   FargateContainerSecurityGroup:
     Description: A security group used to allow Fargate containers to receive traffic
     Value: !Ref "FargateContainerSecurityGroup"
