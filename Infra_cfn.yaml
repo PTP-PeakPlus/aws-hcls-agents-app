@@ -157,13 +157,13 @@ Resources:
             !GetAtt "Network.Outputs.VPC",
             !Ref ExistingVpcId,
           ]
-        PublicSubnet1:
+        PrivateSubnet1:
           !If [
             CreateNetworking,
             !GetAtt "Network.Outputs.PrivateSubnet1",
             !Select [0, !Ref ExistingPrivateSubnets],
           ]
-        PublicSubnet2:
+        PrivateSubnet2:
           !If [
             CreateNetworking,
             !GetAtt "Network.Outputs.PrivateSubnet2",
