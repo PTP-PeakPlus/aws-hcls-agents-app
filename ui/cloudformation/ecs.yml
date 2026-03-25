@@ -275,7 +275,7 @@ Resources:
 
   PrivateService:
     Type: AWS::ECS::Service
-    DependsOn: LoadBalancerRule
+    DependsOn: PrivateLoadBalancerRule
     Properties:
       ServiceName: !Ref "ServiceName"
       Cluster: !Ref ECSCluster

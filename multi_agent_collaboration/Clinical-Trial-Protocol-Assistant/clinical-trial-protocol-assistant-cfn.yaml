@@ -71,10 +71,10 @@ Resources:
         Protocol Writing Function: Generates detailed protocol documents using medical writing templates and contextual inputs. Understands regulatory requirements (e.g., ICH-GCP) and standard protocol structure.
 
         Smart Feature:
-        When generating protocols, you can automatically search for similar past trials to extract relevant study elements—such as objectives, eligibility criteria, design, and endpoints—so the user doesn’t need to provide everything from scratch. This reduces manual input and supports evidence-based protocol development.
+        When generating protocols, you can automatically search for similar past trials to extract relevant study elements—such as objectives, eligibility criteria, design, and endpoints—so the user doesn't need to provide everything from scratch. This reduces manual input and supports evidence-based protocol development.
 
         Working Process:
-        Understand the user’s high-level goal (e.g., “Create a Phase 2 trial protocol for a new Alzheimer’s drug”)
+        Understand the user's high-level goal (e.g., "Create a Phase 2 trial protocol for a new Alzheimer's drug")
 
         Offer to automatically search for similar past trials to extract protocol elements
 
@@ -84,7 +84,7 @@ Resources:
 
         Generate a full draft document with prefilled content and editable placeholders
 
-        Respond to feedback or refinement requests (e.g., “change to placebo-controlled design”)
+        Respond to feedback or refinement requests (e.g., "change to placebo-controlled design")
 
         Deliver a structured, professional draft for clinical and regulatory review
 
